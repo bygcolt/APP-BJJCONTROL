@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OSS Control Pro v1.0</title>
+    
+    <!-- Bibliotecas PDF e Ícones -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyA_br-PEVXXGRvS4LmJP2hFZK_gGmz2CiY",
+          authDomain: "trevoirmaosmoreira.firebaseapp.com",
+          projectId: "trevoirmaosmoreira",
+          storageBucket: "trevoirmaosmoreira.firebasestorage.app",
+          messagingSenderId: "269959688027",
+          appId: "1:269959688027:web:08d612569b40f3d2f7f47e"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        window.db = getFirestore(app);
+        window.auth = getAuth(app);
+        window.appId = "trevoirmaosmoreira-app";
+        signInAnonymously(window.auth);
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css');
+
+        :root {
+            --primary: #1a1a1a; --accent: #c0392b; --bg: #000; --card: #121212;
+            --text: #fff; --success: #27ae60; --border: #222;
+            --header-height: 60px; --nav-height: 70px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: var(--text); overflow-x: hidden; min-height: 100vh; }
+
+        /* Headers e Menus */
+        .top-header { display: none; height: var(--header-height); background-color: #0a0a0a; padding: 0 20px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: fixed; top: 0; left: 0; width: 100%; z-index: 1000; }
+        .top-header-title { font-weight: 900; color: var(--accent); font-size: 1.1em; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: var(--nav-height); background: #0a0a0a; border-top: 1px solid var(--border); display: none; justify-content: space-around; align-items: center; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
+        .bottom-nav a { color: #999; text-decoration: none; display: flex; flex-direction: column; align-items: center; font-size: 0.65em; gap: 4px; font-weight: 700; cursor: pointer; }
+        .bottom-nav a.active { color: var(--accent); }
+
+        .sidebar { width: 260px; background: #0a0a0a; height: 100vh; position: fixed; border-right: 1px solid var(--border); padding: 20px; display: none; z-index: 100; }
+        .sidebar.active { display: block; }
+        .sidebar nav ul { list-style: none; margin-top: 40px; display: grid; gap: 8px; }
+
+        .main-content { margin-left: 0; padding: 20px; display: none; min-height: 100vh; }
+        .main-content.logged-in { margin-left: 260px; display: block; }
+
+        /* Dashboard KPI */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 20px 0; }
+        .kpi-card { background: var(--card); border: 1px solid var(--border); padding: 20px; border-radius: 15px; display: flex; align-items: center; gap: 12px; }
+        
+        /* Faixinhas de BJJ */
+        .belt-container { display: inline-flex; width: 65px; height: 14px; border-radius: 2px; border: 1px solid #333; overflow: hidden; vertical-align: middle; background: #eee; position: relative; }
+        .belt-main { flex: 1; height: 100%; }
+        .belt-ponta { width: 22px; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; gap: 1.5px; padding: 0 2px; }
+        .belt-preta .belt-ponta { background: #c0392b; }
+        .belt-grau { width: 2px; height: 75%; background: #fff; border-radius: 0.5px; }
+
+        /* Status Label Automáticos */
+        .st-label { padding: 4px 8px; border-radius: 6px; font-size: 0.7em; font-weight: 800; text-transform: uppercase; }
+        .st-pago { background: rgba(39, 174, 96, 0.2); color: #2ecc71; }
+        .st-atraso { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
+        .st-pendente { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
+        .st-inativo { background: rgba(153, 153, 153, 0.2); color: #999; }
+
+        /* Modais */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 15px; }
+        .modal.active { display: flex; }
+        .modal-content { background: var(--card); border: 1px solid var(--border); padding: 25px; border-radius: 20px; width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+        /* Tabelas */
+        .table-container { background: var(--card); border-radius: 12px; overflow-x: auto; border: 1px solid var(--border); margin-top: 15px; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; min-width: 500px; }
+        th { background: #0a0a0a; color: #777; font-size: 0.75em; text-transform: uppercase; text-align: left; padding: 15px; }
+        td { padding: 14px 15px; border-bottom: 1px solid var(--border); font-size: 0.96em; vertical-align: middle; }
+
+        /* Botões */
+        .btn { padding: 12px 18px; border-radius: 10px; border: none; cursor: pointer; font-weight: bold; color: #fff; background: var(--accent); display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; }
+        .btn-sec { background: #222; }
+        .btn-touch { min-width: 44px; min-height: 44px; padding: 10px; }
+        
+        input, select, textarea { width: 100%; padding: 14px; background: #000; border: 1px solid var(--border); color: #fff; border-radius: 10px; margin-top: 8px; outline: none; font-size: 1em; }
+        
+        /* Checkbox Moderno */
+        .checkbox-container { display: flex; align-items: center; gap: 10px; margin-top: 15px; background: #0a0a0a; padding: 15px; border-radius: 10px; border: 1px solid var(--border); }
+        .checkbox-container input { width: 22px; height: 22px; margin: 0; accent-color: var(--success); }
+
+        .alert-item { background: var(--card); border: 1px solid var(--border); border-radius: 15px; overflow: hidden; margin-bottom: 15px; }
+        .alert-img { width: 100%; max-height: 300px; object-fit: cover; }
+        .alert-body { padding: 15px; }
+
+        .view { display: none; } .view.active { display: block; }
+        .admin-only { display: none !important; } body.is-admin .admin-only { display: inline-flex !important; }
+
+        @media (max-width: 768px) { 
+            .sidebar { display: none !important; } 
+            .top-header, .bottom-nav { display: flex; }
+            .main-content.logged-in { margin-left: 0; padding-top: calc(var(--header-height) + 15px); padding-bottom: calc(var(--nav-height) + 30px); } 
+            .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+        }
+    </style>
+</head>
+<body class="is-admin">
+
+    <!-- LOGIN -->
+    <div id="login-view">
+        <div class="login-card" style="text-align: center; background: var(--card); padding: 40px; border-radius: 20px; border: 1px solid var(--border); position: fixed; inset: 0; margin: auto; height: fit-content; width: 90%; max-width: 350px;">
+            <img src="IMG-20250602-WA00071.png" width="80">
+            <h2 style="margin: 15px 0;">OSS CONTROL Pro</h2>
+            <input type="password" id="pass" placeholder="Senha Mestre">
+            <button class="btn" style="width:100%; margin-top:15px;" onclick="window.login()">Entrar</button>
+        </div>
+    </div>
+
+    <!-- TOPO MOBILE -->
+    <header class="top-header">
+        <div class="top-header-title">OSS CONTROL Pro</div>
+        <div style="font-size:0.6em; background:#222; padding:4px 8px; border-radius:5px;">MESTRE</div>
+    </header>
+
+    <!-- MENU INFERIOR MOBILE -->
+    <nav class="bottom-nav">
+        <a class="nav-link active" onclick="window.navigateTo('#dashboard')"><i class="fas fa-home fa-lg"></i><span>Início</span></a>
+        <a class="nav-link" onclick="window.navigateTo('#alunos')"><i class="fas fa-users fa-lg"></i><span>Alunos</span></a>
+        <a class="nav-link" onclick="window.navigateTo('#presenca')"><i class="fas fa-calendar-check"></i><span>Chamada</span></a>
+        <a onclick="window.logout()"><i class="fas fa-sign-out-alt fa-lg"></i><span>Sair</span></a>
+    </nav>
+
+    <!-- SIDEBAR DESKTOP -->
+    <aside class="sidebar" id="sidebar">
+        <nav style="display:grid; gap:10px; margin-top:30px">
+            <button class="btn btn-sec" onclick="window.navigateTo('#dashboard')"><i class="fas fa-home"></i> Dashboard</button>
+            <button class="btn btn-sec" onclick="window.navigateTo('#alunos')"><i class="fas fa-users"></i> Alunos</button>
+            <button class="btn btn-sec" onclick="window.navigateTo('#presenca')"><i class="fas fa-check"></i> Chamada</button>
+            <button class="btn btn-sec" onclick="window.logout()" style="margin-top:20px; color:var(--accent)"><i class="fas fa-power-off"></i> Sair</button>
+        </nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="main-content" id="main-content">
+        <!-- Dashboard (Cálculos centralizados no Mestre) -->
+        <div id="dashboard-view" class="view active">
+            <h1>OSS, Mestre André!</h1>
+            <div style="margin-top:20px; display:flex; gap:10px; flex-wrap:wrap">
+                <button class="btn admin-only" onclick="window.toggleModal('modal-mural')"><i class="fas fa-bullhorn"></i> Mural</button>
+                <button class="btn admin-only" onclick="window.openReportEditor()"><i class="fas fa-file-pdf"></i> Relatório PDF</button>
+                <button class="btn admin-only" style="background:#25d366" onclick="window.toggleModal('modal-cobranca')"><i class="fab fa-whatsapp"></i> Cobranças</button>
+            </div>
+
+            <section class="kpi-grid">
+                <div class="kpi-card"><i class="fas fa-user-check"></i><div><h3 id="dash-ativos">0</h3><p>Alunos Ativos</p></div></div>
+                <div class="kpi-card"><i class="fas fa-exclamation-triangle"></i><div><h3 id="dash-atrasos">0</h3><p>Inadimplentes</p></div></div>
+                <div class="kpi-card admin-only" style="border-color:var(--success)"><i class="fas fa-wallet"></i><div><h3 id="dash-pago">R$ 0</h3><p>Recebido (Mês)</p></div></div>
+                <div class="kpi-card admin-only" style="border-color:#e74c3c"><i class="fas fa-hand-holding-usd"></i><div><h3 id="dash-pendente">R$ 0</h3><p>A Receber</p></div></div>
+            </section>
+
+            <h3>📢 Mural Geral</h3>
+            <div id="mural-list" style="margin-top:15px"></div>
+        </div>
+
+        <!-- Alunos -->
+        <div id="alunos-view" class="view">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                <h2>Gestão de Alunos</h2>
+                <button class="btn admin-only" onclick="window.openAdd()"><i class="fas fa-plus"></i> Novo</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Foto</th><th>Nome</th><th>Venc.</th><th>Status (Mês)</th><th>Ações</th></tr></thead>
+                    <tbody id="corpo-alunos"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Chamada -->
+        <div id="presenca-view" class="view">
+            <h2>Chamada do Dia</h2>
+            <div id="corpo-presenca" style="margin-top:15px; display:grid; gap:10px"></div>
+        </div>
+    </main>
+
+    <!-- MODAL ALUNO -->
+    <div id="modal-aluno" class="modal"><div class="modal-content">
+        <h3 id="aluno-modal-titulo">Novo Aluno</h3>
+        <input type="text" id="aluno-nome" placeholder="Nome do Aluno">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+            <select id="aluno-categoria" onchange="window.updateBeltSelect(this.value)"><option value="Adulto">Adulto</option><option value="Criança">Criança</option></select>
+            <select id="aluno-faixa"></select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+            <input type="number" id="aluno-graus" placeholder="Graus (0-4)" value="0">
+            <input type="number" id="aluno-valor" placeholder="Mensalidade (R$)">
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+            <input type="number" id="aluno-vencimento" placeholder="Dia Vencimento" min="1" max="31" value="10">
+            <select id="aluno-ativo"><option value="true">Ativo</option><option value="false">Trancado</option></select>
+        </div>
+        <input type="tel" id="aluno-whatsapp" placeholder="WhatsApp (Ex: 5521999999999)">
+        
+        <label class="checkbox-container">
+            <input type="checkbox" id="aluno-pago-mes">
+            <span>Marcar como PAGO neste mês</span>
+        </label>
+
+        <div style="display:flex; gap:10px; margin-top:20px">
+            <button class="btn" style="flex:1" onclick="window.saveAluno()">Salvar</button>
+            <button class="btn btn-sec" onclick="window.toggleModal('modal-aluno')">Cancelar</button>
+        </div>
+        <button id="btn-delete-aluno" class="btn" style="width:100%; margin-top:10px; background:#333; display:none" onclick="window.deleteAluno()">Excluir Aluno</button>
+    </div></div>
+
+    <!-- MODAL MURAL -->
+    <div id="modal-mural" class="modal"><div class="modal-content">
+        <h3>Gerir Mural</h3>
+        <textarea id="mural-texto" placeholder="Mensagem do mural..."></textarea>
+        <input type="file" id="mural-foto" accept="image/*">
+        <button class="btn" style="width:100%; margin-top:10px" onclick="window.saveAviso()">Publicar</button>
+        <div id="mural-admin-list" style="margin-top:20px; border-top:1px solid #333; padding-top:15px"></div>
+        <button class="btn btn-sec" style="width:100%; margin-top:10px" onclick="window.toggleModal('modal-mural')">Fechar</button>
+    </div></div>
+
+    <!-- MODAL COBRANÇA -->
+    <div id="modal-cobranca" class="modal"><div class="modal-content">
+        <h3>Alunos Pendentes / Atrasados</h3>
+        <div id="lista-cobranca" style="display:grid; gap:10px; margin-top:10px"></div>
+        <button class="btn btn-sec" style="width:100%; margin-top:15px" onclick="window.toggleModal('modal-cobranca')">Fechar</button>
+    </div></div>
+
+    <!-- MODAL RELATÓRIO -->
+    <div id="modal-report" class="modal"><div class="modal-content" style="max-width:700px">
+        <h3>Relatório de Caixa</h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px">
+            <div><label>Início:</label><input type="date" id="rep-data-inicio"></div>
+            <div><label>Fim:</label><input type="date" id="rep-data-fim"></div>
+        </div>
+        <div class="table-container" style="max-height:300px; overflow-y:auto">
+            <table id="table-edit-report"><thead><tr><th>Nome</th><th>Faixa</th><th>Valor</th><th>Status</th></tr></thead><tbody id="corpo-edit-report"></tbody></table>
+        </div>
+        <button class="btn" style="width:100%; margin-top:20px; background:var(--success)" onclick="window.exportFinalPDF()">Gerar PDF Final</button>
+        <button class="btn btn-sec" style="width:100%; margin-top:5px" onclick="window.toggleModal('modal-report')">Cancelar</button>
+    </div></div>
+
+    <script type="module">
+        import { doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let alunos = []; let avisos = []; let editId = null;
+        const beltColorMap = { 'Branca': '#ffffff', 'Cinza': '#95a5a6', 'Amarela': '#f1c40f', 'Laranja': '#e67e22', 'Verde': '#27ae60', 'Azul': '#2980b9', 'Roxa': '#8e44ad', 'Marrom': '#5d4037', 'Preta': '#222' };
+
+        window.login = () => {
+            if(document.getElementById('pass').value === "140411") {
+                document.getElementById('login-view').style.display = 'none';
+                document.getElementById('sidebar').classList.add('active');
+                document.getElementById('main-content').classList.add('logged-in');
+                window.initApp();
+            } else alert("Senha Incorreta");
+        };
+
+        window.toggleModal = (id) => {
+            const modal = document.getElementById(id);
+            if(modal) { modal.classList.toggle('active'); modal.scrollTo(0,0); }
+        };
+
+        window.navigateTo = (hash) => {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.bottom-nav a').forEach(link => link.classList.remove('active'));
+            const targetView = document.querySelector(hash + '-view');
+            if(targetView) targetView.classList.add('active');
+            const targetLink = document.querySelector(`.bottom-nav a[onclick*="${hash}"]`);
+            if(targetLink) targetLink.classList.add('active');
+            if(hash === '#alunos') window.renderAlunos();
+            if(hash === '#presenca') window.renderPresenca();
+            window.scrollTo(0,0);
+        };
+        window.showView = (v) => window.navigateTo('#' + v);
+
+        window.initApp = () => {
+            onSnapshot(doc(window.db, 'artifacts', window.appId, 'public', 'data', 'alunos', 'current'), (s) => {
+                if(s.exists()){ alunos = s.data().list || []; window.updateDash(); window.renderAlunos(); window.renderPresenca(); window.renderCobranca(); }
+            });
+            onSnapshot(doc(window.db, 'artifacts', window.appId, 'public', 'data', 'avisos', 'current'), (s) => {
+                if(s.exists()){ avisos = s.data().list || []; window.renderMural(); window.renderMuralAdmin(); }
+            });
+        };
+
+        window.getBeltHTML = (faixa, graus) => {
+            const color = beltColorMap[faixa] || '#eee';
+            let gr = ''; for(let i=0; i<(graus||0); i++) gr += '<div class="belt-grau"></div>';
+            return `<div class="belt-container ${faixa==='Preta'?'belt-preta':''}"><div class="belt-main" style="background:${color}"></div><div class="belt-ponta">${gr}</div></div>`;
+        };
+
+        // --- CÁLCULO DE STATUS AUTOMÁTICO ---
+        window.calcularStatus = (a) => {
+            if(a.ativo === false) return { label: 'Trancado', class: 'st-inativo', code: 'trancado' };
+            const hoje = new Date();
+            const mesAtual = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+            if(a.mesPago === mesAtual) return { label: 'Pago', class: 'st-pago', code: 'pago' };
+
+            const diaAtual = hoje.getDate();
+            if(diaAtual >= (a.vencimento || 10)) {
+                return { label: 'Inadimplente', class: 'st-atraso', code: 'atraso' };
+            } else {
+                return { label: 'Pendente', class: 'st-pendente', code: 'pendente' };
+            }
+        };
+
+        window.updateDash = () => {
+            let ativos = 0, inadimplentes = 0, pagoMes = 0, aReceber = 0;
+            alunos.forEach(a => {
+                const st = window.calcularStatus(a);
+                if(st.code !== 'trancado') ativos++;
+                if(st.code === 'atraso') inadimplentes++;
+                if(st.code === 'pago') pagoMes += (a.valor || 0);
+                if(st.code === 'atraso' || st.code === 'pendente') aReceber += (a.valor || 0);
+            });
+            document.getElementById('dash-ativos').innerText = ativos;
+            document.getElementById('dash-atrasos').innerText = inadimplentes;
+            document.getElementById('dash-pago').innerText = `R$ ${pagoMes.toFixed(2)}`;
+            document.getElementById('dash-pendente').innerText = `R$ ${aReceber.toFixed(2)}`;
+        };
+
+        window.updateBeltSelect = (cat) => {
+            const list = cat === 'Criança' ? ['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde'] : ['Branca', 'Azul', 'Roxa', 'Marrom', 'Preta'];
+            document.getElementById('aluno-faixa').innerHTML = list.map(f => `<option value="${f}">${f}</option>`).join('');
+        };
+
+        window.openAdd = () => {
+            editId = null; window.updateBeltSelect('Adulto');
+            document.getElementById('aluno-modal-titulo').innerText = "Novo Aluno";
+            document.getElementById('btn-delete-aluno').style.display = 'none';
+            document.getElementById('aluno-nome').value = "";
+            document.getElementById('aluno-graus').value = 0;
+            document.getElementById('aluno-valor').value = "";
+            document.getElementById('aluno-vencimento').value = 10;
+            document.getElementById('aluno-whatsapp').value = "";
+            document.getElementById('aluno-pago-mes').checked = false;
+            window.toggleModal('modal-aluno');
+        };
+
+        window.editAluno = (id) => {
+            const a = alunos.find(x => x.id === id); if(!a) return;
+            editId = id; window.updateBeltSelect(a.categoria || 'Adulto');
+            
+            const hoje = new Date();
+            const mesAtual = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+            
+            document.getElementById('aluno-modal-titulo').innerText = "Editar Aluno";
+            document.getElementById('aluno-nome').value = a.nome;
+            document.getElementById('aluno-faixa').value = a.faixa;
+            document.getElementById('aluno-graus').value = a.graus || 0;
+            document.getElementById('aluno-valor').value = a.valor;
+            document.getElementById('aluno-vencimento').value = a.vencimento || 10;
+            document.getElementById('aluno-whatsapp').value = a.whatsapp || '';
+            document.getElementById('aluno-ativo').value = String(a.ativo);
+            document.getElementById('aluno-pago-mes').checked = (a.mesPago === mesAtual);
+            
+            document.getElementById('btn-delete-aluno').style.display = 'block';
+            window.toggleModal('modal-aluno');
+        };
+
+        window.saveAluno = async () => {
+            const isPago = document.getElementById('aluno-pago-mes').checked;
+            const hoje = new Date();
+            const mesAtual = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+            const aExistente = editId ? alunos.find(x => x.id === editId) : null;
+            
+            const obj = { 
+                id: editId || Date.now(), 
+                nome: document.getElementById('aluno-nome').value, 
+                categoria: document.getElementById('aluno-categoria').value,
+                faixa: document.getElementById('aluno-faixa').value, 
+                graus: parseInt(document.getElementById('aluno-graus').value) || 0,
+                valor: parseFloat(document.getElementById('aluno-valor').value) || 0, 
+                vencimento: parseInt(document.getElementById('aluno-vencimento').value) || 10,
+                whatsapp: document.getElementById('aluno-whatsapp').value, 
+                ativo: document.getElementById('aluno-ativo').value === 'true',
+                mesPago: isPago ? mesAtual : (aExistente && aExistente.mesPago === mesAtual ? '' : (aExistente ? aExistente.mesPago : '')),
+                frequencia: aExistente ? aExistente.frequencia : []
+            };
+            if(editId) alunos = alunos.map(a => a.id === editId ? obj : a); else alunos.push(obj);
+            await setDoc(doc(window.db, 'artifacts', window.appId, 'public', 'data', 'alunos', 'current'), { list: alunos });
+            window.toggleModal('modal-aluno');
+        };
+
+        // --- GERADOR DE RECIBOS ---
+        window.gerarRecibo = async (id) => {
+            const a = alunos.find(x => x.id === id); if(!a) return;
+            const hoje = new Date();
+            const mesAtual = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+            
+            // Marca como pago no Banco de Dados
+            a.mesPago = mesAtual;
+            await setDoc(doc(window.db, 'artifacts', window.appId, 'public', 'data', 'alunos', 'current'), { list: alunos });
+
+            // Gera o PDF
+            const { jsPDF } = window.jspdf; const docPdf = new jsPDF();
+            docPdf.setFontSize(22); docPdf.setTextColor(192, 57, 43);
+            docPdf.text("OSS CONTROL", 105, 20, { align: "center" });
+            
+            docPdf.setFontSize(16); docPdf.setTextColor(0);
+            docPdf.text("RECIBO DE PAGAMENTO", 105, 30, { align: "center" });
+            
+            docPdf.setFontSize(12);
+            docPdf.text(`Recebemos de: ${a.nome}`, 20, 50);
+            docPdf.text(`Valor: R$ ${(a.valor || 0).toFixed(2)}`, 20, 60);
+            docPdf.text(`Referente a: Mensalidade de Jiu-Jitsu.`, 20, 70);
+            docPdf.text(`Data do acerto: ${hoje.toLocaleDateString('pt-BR')}`, 20, 80);
+            
+            docPdf.text("________________________________________________", 105, 110, { align: "center" });
+            docPdf.text("Assinatura / Responsável", 105, 118, { align: "center" });
+            
+            docPdf.save(`Recibo_${a.nome.replace(/\s/g, '_')}.pdf`);
+            alert(`Recibo gerado e mensalidade de ${a.nome} registrada como PAGA!`);
+        };
+
+        window.deleteAluno = async () => {
+            if(confirm("Apagar aluno permanentemente?")) {
+                alunos = alunos.filter(a => a.id !== editId);
+                await setDoc(doc(window.db, 'artifacts', window.appId, 'public', 'data', 'alunos', 'current'), { list: alunos });
+                window.toggleModal('modal-aluno');
+            }
+        };
+
+        window.renderAlunos = () => {
+            document.getElementById('corpo-alunos').innerHTML = alunos.map(a => {
+                const st = window.calcularStatus(a);
+                return `
+                <tr>
+                    <td><img src="https://placehold.co/40" style="border-radius:50%"></td>
+                    <td><strong>${a.nome}</strong><br><small style="color:#777">${window.getBeltHTML(a.faixa, a.graus)}</small></td>
+                    <td>Dia ${a.vencimento || 10}</td>
+                    <td><span class="st-label ${st.class}">${st.label}</span></td>
+                    <td style="display:flex; gap:5px;">
+                        <button class="btn btn-sec btn-touch" title="Editar Aluno" onclick="window.editAluno(${a.id})"><i class="fas fa-edit"></i></button>
+                        ${a.ativo !== false ? `<button class="btn btn-touch" style="background:var(--success)" title="Gerar Recibo e Marcar Pago" onclick="window.gerarRecibo(${a.id})"><i class="fas fa-receipt"></i></button>` : ''}
+                    </td>
+                </tr>
+            `}).join('');
+        };
+
+        window.saveAviso = async () => {
+            const t = document.getElementById('mural-texto').value;
+            const f = document.getElementById('mural-foto').files[0];
+            let img = ""; if(f) img = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(f); });
+            avisos.unshift({ id: Date.now(), text: t, image: img });
+            await setDoc(doc(window.db, 'artifacts', window.appId, 'public', 'data', 'avisos', 'current'), { list: avisos });
+            document.getElementById('mural-texto').value = ""; window.toggleModal('modal-mural');
+        };
+
+        window.deleteAviso = async (id) => {
+            if(confirm("Apagar este aviso?")) {
+                avisos = avisos.filter(a => a.id !== id);
+                await setDoc(doc(window.db, 'artifacts', window.appId, 'public', 'data', 'avisos', 'current'), { list: avisos });
+            }
+        };
+
+        window.renderMural = () => {
+            document.getElementById('mural-list').innerHTML = avisos.map(a => `<div class="alert-item">${a.image ? `<img src="${a.image}" class="alert-img">` : ''}<div class="alert-body">${a.text}</div></div>`).join('');
+        };
+
+        window.renderMuralAdmin = () => {
+            document.getElementById('mural-admin-list').innerHTML = avisos.map(a => `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; padding:10px; border-radius:8px; margin-bottom:8px">
+                    <span style="font-size:0.75em; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; width:70%">${a.text}</span>
+                    <button class="btn btn-touch" style="background:transparent; color:#e74c3c" onclick="window.deleteAviso(${a.id})"><i class="fas fa-trash"></i></button>
+                </div>
+            `).join('');
+        };
+
+        window.openReportEditor = () => {
+            const actives = alunos.filter(a => a.ativo !== false).sort((a,b) => a.nome.localeCompare(b.nome));
+            document.getElementById('corpo-edit-report').innerHTML = actives.map(a => {
+                const st = window.calcularStatus(a);
+                return `<tr><td contenteditable="true">${a.nome}</td><td contenteditable="true">${a.faixa}</td><td contenteditable="true">${(a.valor || 0).toFixed(2)}</td><td contenteditable="true">${st.label.toUpperCase()}</td></tr>`
+            }).join('');
+            window.toggleModal('modal-report');
+        };
+
+        window.exportFinalPDF = () => {
+            const { jsPDF } = window.jspdf; const docPdf = new jsPDF();
+            const rows = Array.from(document.querySelectorAll('#table-edit-report tbody tr')).map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.innerText));
+            docPdf.text("Relatório de Caixa OSS", 14, 20);
+            docPdf.autoTable({ startY: 30, head: [['Nome', 'Faixa', 'Valor', 'Status']], body: rows });
+            docPdf.save("caixa_oss.pdf"); window.toggleModal('modal-report');
+        };
+
+        window.renderPresenca = () => {
+            const hoje = new Date().toLocaleDateString('en-CA');
+            document.getElementById('corpo-presenca').innerHTML = alunos.filter(a => a.ativo !== false).map(a => `<div class="kpi-card" onclick="window.toggleFalta(${a.id})" style="cursor:pointer; justify-content:space-between; min-height:55px;"><strong>${a.nome}</strong> <span style="color:${a.frequencia?.includes(hoje) ? '#2ecc71' : '#e74c3c'}">${a.frequencia?.includes(hoje) ? 'Presente' : 'Faltou'}</span></div>`).join('');
+        };
+
+        window.toggleFalta = async (id) => {
+            const a = alunos.find(x => x.id === id); if(!a) return;
+            const hoje = new Date().toLocaleDateString('en-CA');
+            if(!a.frequencia) a.frequencia = [];
+            a.frequencia = a.frequencia.includes(hoje) ? a.frequencia.filter(d => d !== hoje) : [...a.frequencia, hoje];
+            await setDoc(doc(window.db, 'artifacts', window.appId, 'public', 'data', 'alunos', 'current'), { list: alunos });
+        };
+
+        window.renderCobranca = () => {
+            const devedores = alunos.filter(a => {
+                const st = window.calcularStatus(a);
+                return a.ativo !== false && (st.code === 'atraso' || st.code === 'pendente') && a.whatsapp;
+            });
+            document.getElementById('lista-cobranca').innerHTML = devedores.map(a => `<div class="kpi-card" style="justify-content:space-between; margin-bottom: 8px;"><div><strong>${a.nome}</strong><br><small style="color:var(--accent)">R$ ${(a.valor || 0).toFixed(2)}</small></div><button class="btn btn-touch" style="background:#25d366" onclick="window.sendZap('${a.whatsapp}', '${a.nome}', ${(a.valor || 0)})"><i class="fab fa-whatsapp"></i></button></div>`).join('');
+        };
+
+        window.sendZap = (num, nome, valor) => {
+            const telefoneLimpo = num.replace(/\D/g, '');
+            const mensagem = encodeURIComponent(`OSS, ${nome}! Passando para lembrar da mensalidade da academia no valor de R$ ${valor.toFixed(2)}. Qual a previsão para o acerto?`);
+            window.open(`https://wa.me/${telefoneLimpo}?text=${mensagem}`, '_blank');
+        };
+
+        window.logout = () => location.reload();
+    </script>
+</body>
+</html>
